@@ -206,7 +206,7 @@ void eval(char *cmdline) {
 		}
 	} else { // parent
 
-		sigprocmask(SIG_BLOCK, &sig_all, NULL);
+		sigprocmask(SIG_BLOCK, &sig_all, &sig_old);
 		//sigprocmask(SIG_BLOCK, &sig_all, &sig_old);
 		//printf("parent\n");
 		if (bg) { // background job
@@ -215,9 +215,9 @@ void eval(char *cmdline) {
 			
 			printf("[%d] (%d) %s", jobs->jid, pid, cmdline);
 
-			sigprocmask(SIG_SETMASK, &sig_old, NULL);
 			//sigprocmask(SIG_SETMASK, &sig_old, NULL);
-			//sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
+			sigprocmask(SIG_SETMASK, &sig_old, NULL);
+			sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
 
 			
 
@@ -225,15 +225,12 @@ void eval(char *cmdline) {
 			addjob(jobs, pid, FG, cmdline);
 			if (DEBUG) printf("frgrd\n");
 			sigprocmask(SIG_SETMASK, &sig_old, NULL);
-			//sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
+			sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
 			waitfg(pid);
 		}
 	}
 
-
-
-
-
+	
 	return;
 }
 /**************************************************************************************/
@@ -340,7 +337,10 @@ void waitfg(pid_t pid) {
 			printf("can't find job by pid");
 			break;
 		}
-		if (job->state != FG) break;
+		if (job->state != FG) {
+			if (verbose) printf("waitfg: Process (%d) no longer the fg process\n", pid);
+			break;
+		} 
 		sleep(1);
 		
 	}
@@ -360,7 +360,7 @@ void waitfg(pid_t pid) {
   *     currently running children to terminate.
   */
 void sigchld_handler(int sig) {
-	if (DEBUG) printf("sigchld_handler\n");
+	if (verbose) printf("sigchld_handler: entering\n");
 	int status;
 	pid_t pid;
 	struct job_t *job;
@@ -370,8 +370,27 @@ void sigchld_handler(int sig) {
 		job = getjobpid(jobs, pid);
 
 		if WIFEXITED(status) {
+			kill(-pid, SIGKILL);
+			
+			if (verbose) {
+				printf("sigchld_handler: Job [%d] (%d) deleted\n", job->jid, pid);
+				printf("sigchld_handler: Job [%d] (%d) terminated OK (status %d)\n", job->jid, pid, WEXITSTATUS(status));
+			}
+			deletejob(jobs, pid);
+
+
+		} else if WIFSTOPPED(status) {
 			job->state = ST;
+		
+		
+		} else if WIFSIGNALED(status) {
+			kill(-pid, SIGKILL);
+			printf("Job [%d] (%d) terminated by signal 2\n", job->jid, pid);
+			deletejob(jobs, pid);
 		}
+
+
+		if (verbose) printf("sigchld_handler: exiting\n");
 		return;
 	}
 	return;
@@ -383,6 +402,15 @@ void sigchld_handler(int sig) {
  *    to the foreground job.
  */
 void sigint_handler(int sig) {
+	if (verbose) printf("sigint_hander: entering\n");
+	
+	pid_t pid = fgpid(jobs);
+	if (DEBUG) printf("%d \n", pid);
+	if (pid) {
+		if (verbose) printf("sigint_handler: Job (%d) killed\n", pid);
+		kill(-pid, SIGINT);
+	}
+	if (verbose) printf("sigint_hander: exiting\n");
 	return;
 }
 
