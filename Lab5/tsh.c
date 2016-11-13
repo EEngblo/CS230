@@ -12,7 +12,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-/* Misc manifest constants */
+/* Misc manifest constants */ 
 #define MAXLINE    1024   /* max line size */
 #define MAXARGS     128   /* max args on a command line */
 #define MAXJOBS      16   /* max jobs at any point in time */
@@ -130,22 +130,22 @@ int main(int argc, char **argv)
     /* Execute the shell's read/eval loop */
     while (1) {
 
-	/* Read command line */
-	if (emit_prompt) {
-	    printf("%s", prompt);
-	    fflush(stdout);
-	}
-	if ((fgets(cmdline, MAXLINE, stdin) == NULL) && ferror(stdin))
-	    app_error("fgets error");
-	if (feof(stdin)) { /* End of file (ctrl-d) */
-	    fflush(stdout);
-	    exit(0);
-	}
+		/* Read command line */
+		if (emit_prompt) {
+		    printf("%s", prompt);
+		    fflush(stdout);
+		}
+		if ((fgets(cmdline, MAXLINE, stdin) == NULL) && ferror(stdin))
+	  	    app_error("fgets error");
+		if (feof(stdin)) { /* End of file (ctrl-d) */
+		    fflush(stdout);
+		    exit(0);
+		}
 
-	/* Evaluate the command line */
-	eval(cmdline);
-	fflush(stdout);
-	fflush(stdout);
+		/* Evaluate the command line */
+		eval(cmdline);
+		fflush(stdout);
+		fflush(stdout);
     } 
 
     exit(0); /* control never reaches here */
@@ -162,10 +162,30 @@ int main(int argc, char **argv)
  * background children don't receive SIGINT (SIGTSTP) from the kernel
  * when we type ctrl-c (ctrl-z) at the keyboard.  
 */
-void eval(char *cmdline) 
-{
+/**********************************************************************************/
+void eval(char *cmdline) {
+	char *argv[MAXARGS];
+	char buf[MAXLINE];
+	int bg;
+	pid_t pid;
+
+	strcpy(buf, cmdline);
+	bg = parseline(buf, argv);
+
+	if (argv[0] == NULL) return; // Ignore empty lines
+
+	builtin_cmd_done = builtin_cmd(argv); // If command is built-in command, then exectue it and set 1
+
+	if (!builtin_cmd_done)) { // If command is not built-in command, fork a child process
+
+
+	}
+
+
     return;
 }
+/**************************************************************************************/
+
 
 /* 
  * parseline - Parse the command line and build the argv array.
@@ -185,51 +205,65 @@ int parseline(const char *cmdline, char **argv)
     strcpy(buf, cmdline);
     buf[strlen(buf)-1] = ' ';  /* replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* ignore leading spaces */
-	buf++;
+		buf++;
 
     /* Build the argv list */
     argc = 0;
     if (*buf == '\'') {
-	buf++;
-	delim = strchr(buf, '\'');
-    }
-    else {
-	delim = strchr(buf, ' ');
+		buf++;
+		delim = strchr(buf, '\'');
+    } else {
+		delim = strchr(buf, ' ');
     }
 
     while (delim) {
-	argv[argc++] = buf;
-	*delim = '\0';
-	buf = delim + 1;
-	while (*buf && (*buf == ' ')) /* ignore spaces */
-	       buf++;
+		argv[argc++] = buf;
+		*delim = '\0';
+		buf = delim + 1;
+		while (*buf && (*buf == ' ')) /* ignore spaces */
+			buf++;
 
-	if (*buf == '\'') {
-	    buf++;
-	    delim = strchr(buf, '\'');
-	}
-	else {
-	    delim = strchr(buf, ' ');
-	}
+		if (*buf == '\'') {
+			buf++;
+			delim = strchr(buf, '\'');
+		} else {
+			delim = strchr(buf, ' ');
+		}
     }
     argv[argc] = NULL;
     
     if (argc == 0)  /* ignore blank line */
-	return 1;
+		return 1;
 
     /* should the job run in the background? */
     if ((bg = (*argv[argc-1] == '&')) != 0) {
-	argv[--argc] = NULL;
+		argv[--argc] = NULL;
     }
     return bg;
 }
 
+
+/*********************************************************************************/
 /* 
  * builtin_cmd - If the user has typed a built-in command then execute
  *    it immediately.  
  */
-int builtin_cmd(char **argv) 
-{
+int builtin_cmd(char **argv) {
+	if (!strcmp('quit', argv[0])) {
+		exit(0);
+		return 1;
+	}
+
+	if (!strcmp('bg', argv[0]) && !strcmp('fg', argv[0]) {
+		do_bgfg(argv);
+		return 1;
+	}
+
+	if (!strcmp('jobs', argv[0])) {
+		listjobs(jobs);
+		return 1;
+	}
+
     return 0;     /* not a builtin command */
 }
 
@@ -284,7 +318,7 @@ void sigtstp_handler(int sig)
 {
     return;
 }
-
+/****************************************************************************************/
 /*********************
  * End signal handlers
  *********************/
