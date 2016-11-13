@@ -12,6 +12,8 @@
 #include <sys/wait.h>
 #include <errno.h>
 
+
+
  /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
 #define MAXARGS     128   /* max args on a command line */
@@ -24,6 +26,9 @@
 #define BG 2    /* running in background */
 #define ST 3    /* stopped */
 
+#define TRUE 1
+#define FALSE 0
+#define DEBUG FALSE
 /*
  * Jobs states: FG (foreground), BG (background), ST (stopped)
  * Job state transitions and enabling actions:
@@ -168,7 +173,7 @@ void eval(char *cmdline) {
 	char *argv[MAXARGS];
 	char buf[MAXLINE];
 	int bg, builtin_cmd_done;
-	pid_t pid;
+	volatile pid_t pid;
 	sigset_t sig_mask, sig_all, sig_old;
 
 	strcpy(buf, cmdline);
@@ -200,11 +205,27 @@ void eval(char *cmdline) {
 			exit(0);
 		}
 	} else { // parent
-		if (bg) { // background job
 
+		sigprocmask(SIG_BLOCK, &sig_all, NULL);
+		//sigprocmask(SIG_BLOCK, &sig_all, &sig_old);
+		//printf("parent\n");
+		if (bg) { // background job
+			addjob(jobs, pid, BG, cmdline);
+			//printf("bckgrd\n");
+			
+			printf("[%d] (%d) %s", jobs->jid, pid, cmdline);
+
+			sigprocmask(SIG_SETMASK, &sig_old, NULL);
+			//sigprocmask(SIG_SETMASK, &sig_old, NULL);
+			//sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
+
+			
 
 		} else { // foreground job
-			
+			addjob(jobs, pid, FG, cmdline);
+			if (DEBUG) printf("frgrd\n");
+			sigprocmask(SIG_SETMASK, &sig_old, NULL);
+			//sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
 			waitfg(pid);
 		}
 	}
@@ -302,6 +323,7 @@ int builtin_cmd(char **argv) {
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) {
+	if (DEBUG) printf("dobfgf\n");
 	return;
 }
 
@@ -309,6 +331,20 @@ void do_bgfg(char **argv) {
  * waitfg - Block until process pid is no longer the foreground process
  */
 void waitfg(pid_t pid) {
+	
+	struct job_t *job;
+	job = getjobpid(jobs, pid);
+	if (DEBUG) printf("pid : %d, jid : %d, state : %d\n", pid, job->jid, job->state);
+	while (TRUE){
+		if (job == NULL) {
+			printf("can't find job by pid");
+			break;
+		}
+		if (job->state != FG) break;
+		sleep(1);
+		
+	}
+
 	return;
 }
 
@@ -324,6 +360,20 @@ void waitfg(pid_t pid) {
   *     currently running children to terminate.
   */
 void sigchld_handler(int sig) {
+	if (DEBUG) printf("sigchld_handler\n");
+	int status;
+	pid_t pid;
+	struct job_t *job;
+	pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
+	if (pid > 0) {
+
+		job = getjobpid(jobs, pid);
+
+		if WIFEXITED(status) {
+			job->state = ST;
+		}
+		return;
+	}
 	return;
 }
 
