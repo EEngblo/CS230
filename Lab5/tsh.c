@@ -381,11 +381,11 @@ void sigchld_handler(int sig) {
 
 		} else if WIFSTOPPED(status) {
 			job->state = ST;
-		
+			printf("Job [%d] (%d) stopped by signal %d\n", job->jid, pid, WSTOPSIG(status));
 		
 		} else if WIFSIGNALED(status) {
 			kill(-pid, SIGKILL);
-			printf("Job [%d] (%d) terminated by signal 2\n", job->jid, pid);
+			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, WTERMSIG(status));
 			deletejob(jobs, pid);
 		}
 
@@ -420,6 +420,17 @@ void sigint_handler(int sig) {
  *     foreground job by sending it a SIGTSTP.
  */
 void sigtstp_handler(int sig) {
+	struct job_t *job;
+	if (verbose) printf("sigtstp_hander: entering\n");
+
+	pid_t pid = fgpid(jobs);
+	if (DEBUG) printf("%d \n", pid);
+	if (pid) {
+		job = getjobpid(jobs, pid);
+		if (verbose) printf("sigtst_handler: Job [%d] (%d) stopped\n", job->jid, pid);
+		kill(-pid, SIGTSTP);
+	}
+	if (verbose) printf("sigtstp_hander: exiting\n");
 	return;
 }
 /****************************************************************************************/
