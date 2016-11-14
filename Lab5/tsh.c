@@ -320,7 +320,45 @@ int builtin_cmd(char **argv) {
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) {
-	if (DEBUG) printf("dobfgf\n");
+	int i;
+	int pid;
+	char* index = argv[1];
+	struct job_t *job;
+	if (DEBUG) {
+		for (i = 0; argv[i] != NULL; i++) {
+			printf("%s\n", argv[i]);
+		}
+	}
+
+	//printf("%c, %d", index[0], index[0]=='%');
+	
+	if (index[0] == '%') {
+		i = atoi(index+1);
+		//printf("%d\n", i);
+		job = getjobjid(jobs, i);
+		
+	} else {
+		//printf("%d\n", atoi(index));
+		job = getjobpid(jobs, atoi(index));
+
+		
+	}
+	pid = job->pid; 
+
+	
+	if (!strcmp("bg", argv[0])){
+		kill(-pid, SIGCONT);
+		job->state = BG;
+		printf("[%d] (%d) %s", job->jid, pid, job->cmdline);
+
+	} else if (!strcmp("fg", argv[0])) {
+		kill(-pid, SIGCONT);
+		job->state = FG;
+		waitfg(pid);
+
+
+	}
+	
 	return;
 }
 
@@ -385,14 +423,16 @@ void sigchld_handler(int sig) {
 		
 		} else if WIFSIGNALED(status) {
 			kill(-pid, SIGKILL);
-			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, WTERMSIG(status));
+			if (verbose) {
+				printf("sigchild_handler: job[%d] (%d) deleted\n", job->jid, pid);
+			}
+			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, pid, WTERMSIG(status));
 			deletejob(jobs, pid);
 		}
 
 
-		if (verbose) printf("sigchld_handler: exiting\n");
-		return;
 	}
+	if (verbose) printf("sigchld_handler: exiting\n");
 	return;
 }
 
