@@ -220,7 +220,6 @@ void eval(char *cmdline) {
 			sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
 
 			
-
 		} else { // foreground job
 			addjob(jobs, pid, FG, cmdline);
 			if (DEBUG) printf("frgrd\n");
