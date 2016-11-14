@@ -1,6 +1,8 @@
 /*
  * tsh - A tiny shell program with job control
- *
+ * CS20160385 Jingyoung Oh
+ * https://github.com/EEngblo/CS230/tree/master/Lab5
+ * Private Project
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -189,8 +191,9 @@ void eval(char *cmdline) {
 
 	// If command is not built-in command, fork a child process
 	sigemptyset(&sig_mask);
-	sigaddset(&sig_mask, SIGCHLD);
-	sigfillset(&sig_all);
+	sigaddset(&sig_mask, SIGCHLD); // only SIGCHLD
+
+	sigfillset(&sig_all); // all SIG
 
 	sigprocmask(SIG_BLOCK, &sig_mask, &sig_old);
 
@@ -322,7 +325,7 @@ void do_bgfg(char **argv) {
 	int i;
 	int pid;
 	struct job_t *job;
-	if (argv[1] == NULL) {
+	if (argv[1] == NULL) { // if there is no PID, %JID argument
 		printf("%s command requires PID or %%jobid argument\n", argv[0]);
 		return;
 	} 
@@ -334,14 +337,14 @@ void do_bgfg(char **argv) {
 		}
 	}
 
-	//printf("%c, %d", index[0], index[0]=='%');
+	if (DEBUG) printf("%c, %d", argv[1][0], argv[1][0]=='%');
 	
 	if (argv[1][0] == '%') {
 		i = atoi(argv[1]+1);
 		//printf("%d\n", i);
 		job = getjobjid(jobs, i);
 
-		if (job == NULL) {
+		if (job == NULL) { // if there is no job which has argument jid
 			printf("%s: No such job\n", argv[1]);
 			return;
 		}
@@ -350,24 +353,24 @@ void do_bgfg(char **argv) {
 		//printf("%d\n", atoi(index));
 		job = getjobpid(jobs, atoi(argv[1]));
 
-		if (job == NULL) {
+		if (job == NULL) { // if there is no job which has argument pid
 			printf("(%s): No such process\n", argv[1]);
 			return;
 		}
 
-	} else {
+	} else { // if argument is not jid or pid
 		printf("%s: argument must be a PID or %%jobid\n", argv[0]);
 		return;
 	}
 	pid = job->pid; 
 
 	
-	if (!strcmp("bg", argv[0])){
+	if (!strcmp("bg", argv[0])){ // backgound job
 		kill(-pid, SIGCONT);
 		job->state = BG;
 		printf("[%d] (%d) %s", job->jid, pid, job->cmdline);
 
-	} else if (!strcmp("fg", argv[0])) {
+	} else if (!strcmp("fg", argv[0])) { // foreground job
 		kill(-pid, SIGCONT);
 		job->state = FG;
 		waitfg(pid);
