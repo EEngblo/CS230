@@ -207,7 +207,7 @@ void eval(char *cmdline) {
 	} else { // parent
 
 		sigprocmask(SIG_BLOCK, &sig_all, &sig_old);
-		//sigprocmask(SIG_BLOCK, &sig_all, &sig_old);
+		
 		//printf("parent\n");
 		if (bg) { // background job
 			addjob(jobs, pid, BG, cmdline);
@@ -215,7 +215,7 @@ void eval(char *cmdline) {
 			
 			printf("[%d] (%d) %s", jobs->jid, pid, cmdline);
 
-			//sigprocmask(SIG_SETMASK, &sig_old, NULL);
+			
 			sigprocmask(SIG_SETMASK, &sig_old, NULL);
 			sigprocmask(SIG_UNBLOCK, &sig_mask, NULL);
 
@@ -321,8 +321,13 @@ int builtin_cmd(char **argv) {
 void do_bgfg(char **argv) {
 	int i;
 	int pid;
-	char* index = argv[1];
 	struct job_t *job;
+	if (argv[1] == NULL) {
+		printf("%s command requires PID or %%jobid argument\n", argv[0]);
+		return;
+	} 
+
+	
 	if (DEBUG) {
 		for (i = 0; argv[i] != NULL; i++) {
 			printf("%s\n", argv[i]);
@@ -331,16 +336,28 @@ void do_bgfg(char **argv) {
 
 	//printf("%c, %d", index[0], index[0]=='%');
 	
-	if (index[0] == '%') {
-		i = atoi(index+1);
+	if (argv[1][0] == '%') {
+		i = atoi(argv[1]+1);
 		//printf("%d\n", i);
 		job = getjobjid(jobs, i);
-		
-	} else {
-		//printf("%d\n", atoi(index));
-		job = getjobpid(jobs, atoi(index));
 
+		if (job == NULL) {
+			printf("%s: No such job\n", argv[1]);
+			return;
+		}
 		
+	} else if(argv[1][0] >= '0' &&  argv[1][0] <= '9'){
+		//printf("%d\n", atoi(index));
+		job = getjobpid(jobs, atoi(argv[1]));
+
+		if (job == NULL) {
+			printf("(%s): No such process\n", argv[1]);
+			return;
+		}
+
+	} else {
+		printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+		return;
 	}
 	pid = job->pid; 
 
